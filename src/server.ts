@@ -23,24 +23,45 @@ const io = new Server(httpServer, {
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/auth', authRoutes);
+import testRoutes from './routes/testRoutes.js';
+app.use('/', testRoutes);
+
 
 mongoose.connect(process.env.MONGODB_URI as string)
     .then(() => console.log('Connected to MongoDB'))
     .catch((err) => console.error('MongoDB error:', err));
 
 app.get('/', (req, res) => {
+    app.get('/', (req, res) => {
+        res.redirect('/test');
+    });
+
     res.json({
-        message: 'Chat API is running',
-        description: 'Real-time chat API built with Socket.io and MongoDB',
-        endpoints: {
-            register: 'POST /api/auth/register',
-            login: 'POST /api/auth/login',
-            websocket: 'ws://localhost:3003'
+        message: 'Real-Time Chat API',
+        version: '1.0.0',
+        description: 'WebSocket-based chat API built with Socket.io and MongoDB',
+        authentication: 'JWT — get token from /api/auth/login then pass as socket auth',
+        rest_endpoints: {
+            'POST /api/auth/register': 'Register a new user',
+            'POST /api/auth/login': 'Login and get JWT token'
         },
-        events: {
-            client_emits: ['join_room', 'send_message', 'leave_room'],
-            server_emits: ['room_history', 'new_message', 'user_joined', 'user_left', 'error']
-        }
+        websocket_events: {
+            client_emits: {
+                join_room: 'roomName (string)',
+                send_message: '{ roomName, content }',
+                leave_room: 'roomName (string)'
+            },
+            server_emits: {
+                room_history: 'Last 50 messages on join',
+                new_message: 'New message broadcast to room',
+                user_joined: 'User joined notification',
+                user_left: 'User left notification',
+                error: 'Error message'
+            }
+        },
+        test_client: 'https://amritb.github.io/socketio-client-tool/',
+        github: 'https://github.com/1-dara/chat-api'
     });
 });
 
