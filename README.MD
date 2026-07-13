@@ -2,7 +2,7 @@
 
 A real-time chat backend built with **TypeScript**, **Node.js**, **Socket.io**, and **MongoDB**. Supports multiple chat rooms, live messaging, chat history, and JWT-authenticated WebSocket connections.
 
-🔗 **Live API:** YOUR_RENDER_URL
+🔗 **Live API:** https://chat-api-udxb.onrender.com
 💻 **GitHub:** https://github.com/1-dara/chat-api
 
 ---
