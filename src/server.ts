@@ -7,6 +7,8 @@ import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
 import authRoutes from './routes/authRoutes.js';
 import Message from './models/Message.js';
 import Room from './models/Room.js';
@@ -28,34 +30,78 @@ mongoose.connect(process.env.MONGODB_URI as string)
     .then(() => console.log('Connected to MongoDB'))
     .catch((err) => console.error('MongoDB error:', err));
 
-app.get('/', (req, res) => {
-    res.json({
-        name: 'Real-Time Chat API',
-        version: '1.0.0',
-        status: 'running',
-        description: 'WebSocket-based real-time chat API built with Socket.io, Node.js, TypeScript and MongoDB',
-        github: 'https://github.com/1-dara/chat-api',
-        rest_endpoints: {
-            register: 'POST /api/auth/register',
-            login: 'POST /api/auth/login'
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'Real-Time Chat API',
+            version: '1.0.0',
+            description: `WebSocket-based real-time chat API built with Socket.io, Node.js, TypeScript and MongoDB.
+
+## How to use WebSockets
+
+1. Register and login to get a JWT token
+2. Connect to the WebSocket server with your token:
+\`\`\`javascript
+const socket = io('https://chat-api-udxb.onrender.com', {
+  auth: { token: 'your-jwt-token' }
+});
+\`\`\`
+3. Join a room:
+\`\`\`javascript
+socket.emit('join_room', 'general');
+\`\`\`
+4. Send a message:
+\`\`\`javascript
+socket.emit('send_message', { roomName: 'general', content: 'Hello!' });
+\`\`\`
+5. Listen for messages:
+\`\`\`javascript
+socket.on('new_message', (msg) => console.log(msg));
+\`\`\`
+
+## WebSocket Events
+
+| Direction | Event | Payload |
+|---|---|---|
+| Client → Server | join_room | roomName: string |
+| Client → Server | send_message | { roomName, content } |
+| Client → Server | leave_room | roomName: string |
+| Server → Client | room_history | { room, messages[] } |
+| Server → Client | new_message | { id, content, sender, room, createdAt } |
+| Server → Client | user_joined | { username, room } |
+| Server → Client | user_left | { username, room } |
+| Server → Client | error | { message } |
+`,
         },
-        websocket: {
-            url: 'wss://chat-api-udxb.onrender.com',
-            auth: 'Pass JWT token in socket handshake: { auth: { token } }',
-            client_events: {
-                join_room: 'string (room name)',
-                send_message: '{ roomName: string, content: string }',
-                leave_room: 'string (room name)'
+        servers: [
+            {
+                url: 'https://chat-api-udxb.onrender.com',
+                description: 'Production server',
             },
-            server_events: {
-                room_history: 'Last 50 messages on room join',
-                new_message: 'New message broadcast to all room members',
-                user_joined: 'Notification when user joins room',
-                user_left: 'Notification when user leaves room',
-                error: 'Error message'
-            }
-        }
-    });
+            {
+                url: 'http://localhost:3003',
+                description: 'Local server',
+            },
+        ],
+        components: {
+            securitySchemes: {
+                bearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT',
+                },
+            },
+        },
+    },
+    apis: ['./src/routes/*.ts'],
+};
+
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+app.get('/', (req, res) => {
+    res.redirect('/docs');
 });
 
 app.use('/api/auth', authRoutes);
@@ -172,4 +218,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3003;
 httpServer.listen(PORT, () => {
     console.log(`Chat API running on port ${PORT}`);
+    console.log(`Docs at http://localhost:${PORT}/docs`);
 });
