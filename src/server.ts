@@ -23,51 +23,43 @@ const io = new Server(httpServer, {
 
 app.use(cors());
 app.use(express.json());
-app.use('/api/auth', authRoutes);
-import testRoutes from './routes/testRoutes.js';
-app.use('/', testRoutes);
-
 
 mongoose.connect(process.env.MONGODB_URI as string)
     .then(() => console.log('Connected to MongoDB'))
     .catch((err) => console.error('MongoDB error:', err));
 
 app.get('/', (req, res) => {
-    app.get('/', (req, res) => {
-        res.redirect('/test');
-    });
-
     res.json({
-        message: 'Real-Time Chat API',
+        name: 'Real-Time Chat API',
         version: '1.0.0',
-        description: 'WebSocket-based chat API built with Socket.io and MongoDB',
-        authentication: 'JWT — get token from /api/auth/login then pass as socket auth',
+        status: 'running',
+        description: 'WebSocket-based real-time chat API built with Socket.io, Node.js, TypeScript and MongoDB',
+        github: 'https://github.com/1-dara/chat-api',
         rest_endpoints: {
-            'POST /api/auth/register': 'Register a new user',
-            'POST /api/auth/login': 'Login and get JWT token'
+            register: 'POST /api/auth/register',
+            login: 'POST /api/auth/login'
         },
-        websocket_events: {
-            client_emits: {
-                join_room: 'roomName (string)',
-                send_message: '{ roomName, content }',
-                leave_room: 'roomName (string)'
+        websocket: {
+            url: 'wss://chat-api-udxb.onrender.com',
+            auth: 'Pass JWT token in socket handshake: { auth: { token } }',
+            client_events: {
+                join_room: 'string (room name)',
+                send_message: '{ roomName: string, content: string }',
+                leave_room: 'string (room name)'
             },
-            server_emits: {
-                room_history: 'Last 50 messages on join',
-                new_message: 'New message broadcast to room',
-                user_joined: 'User joined notification',
-                user_left: 'User left notification',
+            server_events: {
+                room_history: 'Last 50 messages on room join',
+                new_message: 'New message broadcast to all room members',
+                user_joined: 'Notification when user joins room',
+                user_left: 'Notification when user leaves room',
                 error: 'Error message'
             }
-        },
-        test_client: 'https://amritb.github.io/socketio-client-tool/',
-        github: 'https://github.com/1-dara/chat-api'
+        }
     });
 });
 
 app.use('/api/auth', authRoutes);
 
-// WebSocket connection handler
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) {
@@ -86,7 +78,6 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.data.username}`);
 
-    // Join a chat room
     socket.on('join_room', async (roomName: string) => {
         try {
             let room = await Room.findOne({ name: roomName });
@@ -106,7 +97,6 @@ io.on('connection', (socket) => {
 
             socket.join(roomName);
 
-            // Send last 50 messages as history
             const history = await Message.find({ room: room._id })
                 .populate('sender', 'username')
                 .sort({ createdAt: -1 })
@@ -123,7 +113,6 @@ io.on('connection', (socket) => {
                 }))
             });
 
-            // Notify others in the room
             socket.to(roomName).emit('user_joined', {
                 username: socket.data.username,
                 room: roomName
@@ -135,7 +124,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Send a message
     socket.on('send_message', async ({ roomName, content }: { roomName: string; content: string }) => {
         try {
             const room = await Room.findOne({ name: roomName });
@@ -161,14 +149,12 @@ io.on('connection', (socket) => {
                 createdAt: message.createdAt
             };
 
-            // Broadcast to everyone in the room including sender
             io.to(roomName).emit('new_message', messageData);
         } catch (error: any) {
             socket.emit('error', { message: error.message });
         }
     });
 
-    // Leave a room
     socket.on('leave_room', (roomName: string) => {
         socket.leave(roomName);
         socket.to(roomName).emit('user_left', {
@@ -178,7 +164,6 @@ io.on('connection', (socket) => {
         console.log(`${socket.data.username} left room: ${roomName}`);
     });
 
-    // Disconnect
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.data.username}`);
     });
